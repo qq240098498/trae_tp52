@@ -586,11 +586,13 @@ export function NewOrder() {
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [showChangeAlert, setShowChangeAlert] = useState(false);
 
   const getOrderById = useOrderStore((s) => s.getOrderById);
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
   const getCustomerById = useCustomerStore((s) => s.getCustomerById);
   const getExamRecordById = useCustomerStore((s) => s.getExamRecordById);
+  const getExamRecordsByCustomerId = useCustomerStore((s) => s.getExamRecordsByCustomerId);
   const getFrameById = useFrameStore((s) => s.getFrameById);
   const getLensById = useLensStore((s) => s.getLensById);
 
@@ -599,6 +601,15 @@ export function OrderDetail() {
   const examRecord = order ? getExamRecordById(order.examRecordId) : undefined;
   const frame = order ? getFrameById(order.frameId) : undefined;
   const lens = order ? getLensById(order.lensId) : undefined;
+
+  const examRecords = order ? getExamRecordsByCustomerId(order.customerId) : [];
+  const previousExam = order && examRecord
+    ? getPreviousExamRecord(examRecords, order.examRecordId)
+    : undefined;
+
+  const prescriptionDiff = examRecord && previousExam
+    ? calculatePrescriptionDiff(previousExam, examRecord)
+    : null;
 
   if (!order) {
     return (
@@ -734,6 +745,24 @@ export function OrderDetail() {
           {examRecord && (
             <div>
               <h3 className="font-bold text-gray-900 mb-4">验光处方</h3>
+              {prescriptionDiff?.hasSignificantChange && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-amber-800">度数变动提醒</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      与上次验光（{formatDate(previousExam!.examDate)}）相比，{prescriptionDiff.significantItems.join('、')} 有变化
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowChangeAlert(true)}
+                      className="mt-2 text-sm text-amber-700 underline hover:text-amber-800"
+                    >
+                      查看详细对比
+                    </button>
+                  </div>
+                </div>
+              )}
               <PrescriptionCard
                 rightEye={examRecord.rightEye}
                 leftEye={examRecord.leftEye}
@@ -845,6 +874,68 @@ export function OrderDetail() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={showChangeAlert}
+        onClose={() => setShowChangeAlert(false)}
+        title="度数变动提醒"
+        maxWidth="max-w-3xl"
+      >
+        {prescriptionDiff && previousExam && examRecord && (
+          <div className="space-y-6">
+            <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold text-amber-900">注意：顾客度数有明显变化</h4>
+                <p className="text-sm text-amber-700 mt-1">
+                  与上次验光（{formatDate(previousExam.examDate)}）相比，以下项目变化超过25度，请确认配镜度数是否合适。
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-medium text-gray-700">变化趋势：</p>
+              <ul className="space-y-1 text-sm">
+                <li className={prescriptionDiff.rightSphereDiff !== 0 ? 'text-gray-700' : 'text-gray-400'}>
+                  • 右眼球镜：{getChangeTrendText(prescriptionDiff.rightSphereDiff, '度数')}
+                </li>
+                <li className={prescriptionDiff.rightCylinderDiff !== 0 ? 'text-gray-700' : 'text-gray-400'}>
+                  • 右眼柱镜：{getChangeTrendText(prescriptionDiff.rightCylinderDiff, '度数')}
+                </li>
+                <li className={prescriptionDiff.leftSphereDiff !== 0 ? 'text-gray-700' : 'text-gray-400'}>
+                  • 左眼球镜：{getChangeTrendText(prescriptionDiff.leftSphereDiff, '度数')}
+                </li>
+                <li className={prescriptionDiff.leftCylinderDiff !== 0 ? 'text-gray-700' : 'text-gray-400'}>
+                  • 左眼柱镜：{getChangeTrendText(prescriptionDiff.leftCylinderDiff, '度数')}
+                </li>
+              </ul>
+            </div>
+
+            <PrescriptionCompare
+              oldRx={{
+                rightEye: previousExam.rightEye,
+                leftEye: previousExam.leftEye,
+                pd: previousExam.pd,
+              }}
+              newRx={{
+                rightEye: examRecord.rightEye,
+                leftEye: examRecord.leftEye,
+                pd: examRecord.pd,
+              }}
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowChangeAlert(false)}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
