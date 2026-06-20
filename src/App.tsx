@@ -9,6 +9,7 @@ import { FrameList, FrameForm } from './pages/frames';
 import { LensList, LensForm } from './pages/lenses';
 import { OrderList, NewOrder, OrderDetail } from './pages/orders';
 import PickupReview from './pages/orders/PickupReview';
+import OverdueList from './pages/orders/OverdueList';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/orders/new" element={<NewOrder />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/pickup" element={<PickupReview />} />
+          <Route path="/overdue" element={<OverdueList />} />
         </Route>
       </Routes>
     </Router>

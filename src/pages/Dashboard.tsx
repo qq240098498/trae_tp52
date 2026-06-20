@@ -8,6 +8,7 @@ import {
   Users,
   ArrowRight,
   Clock,
+  Bell,
   CheckCircle,
 } from 'lucide-react';
 import { StatCard } from '../components/DataTable';
@@ -16,7 +17,7 @@ import { useCustomerStore } from '../store/customerStore';
 import { useFrameStore } from '../store/frameStore';
 import { useLensStore } from '../store/lensStore';
 import { useOrderStore } from '../store/orderStore';
-import { getDashboardStats, formatCurrency, formatDate } from '../utils';
+import { getDashboardStats, formatCurrency, formatDate, getOverdueStatus } from '../utils';
 import type { DashboardStats, Order } from '../types';
 
 export default function Dashboard() {
@@ -45,6 +46,10 @@ export default function Dashboard() {
 
   const lowStockFrames = frames.filter((f) => f.stock <= f.warningStock);
   const lowStockLenses = lenses.filter((l) => l.stock <= l.warningStock);
+
+  const warningOrders = orders.filter((o) => getOverdueStatus(o) === 'warning');
+  const abnormalOrders = orders.filter((o) => getOverdueStatus(o) === 'abnormal');
+  const totalOverdue = warningOrders.length + abnormalOrders.length;
 
   useEffect(() => {
     setStats(getDashboardStats());
@@ -109,6 +114,33 @@ export default function Dashboard() {
           linkTo="/orders"
         />
       </div>
+
+      {totalOverdue > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white shadow-lg shadow-amber-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                <Bell className="w-7 h-7 animate-pulse" />
+              </div>
+              <div>
+                <p className="text-white/80 text-sm">取镜逾期提醒</p>
+                <p className="text-2xl font-bold mt-1">
+                  共 {totalOverdue} 单逾期未取
+                </p>
+                <p className="text-white/70 text-sm mt-1">
+                  逾期提醒 {warningOrders.length} 单 · 逾期异常 {abnormalOrders.length} 单
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/overdue"
+              className="px-5 py-2.5 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              查看详情 <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

@@ -12,15 +12,23 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
-import { StatusBadge, ReviewStatusBadge } from '../../components/StatusBadge';
+import { StatusBadge, ReviewStatusBadge, OverdueBadge } from '../../components/StatusBadge';
 import { PrescriptionCard, PrescriptionCompare } from '../../components/PrescriptionCard';
 import { Modal } from '../../components/Modal';
 import { useCustomerStore } from '../../store/customerStore';
 import { useFrameStore } from '../../store/frameStore';
 import { useLensStore } from '../../store/lensStore';
 import { useOrderStore } from '../../store/orderStore';
-import { formatCurrency, formatDate, calculatePrescriptionDiff, getChangeTrendText, getPreviousExamRecord } from '../../utils';
-import type { Order, ExamRecord, Frame, Lens, Customer } from '../../types';
+import {
+  formatCurrency,
+  formatDate,
+  calculatePrescriptionDiff,
+  getChangeTrendText,
+  getPreviousExamRecord,
+  getOverdueStatus,
+  getDaysSinceCompleted,
+} from '../../utils';
+import type { Order } from '../../types';
 
 export function OrderList() {
   const navigate = useNavigate();
@@ -98,6 +106,9 @@ export function OrderList() {
         <div className="flex flex-col gap-1">
           <StatusBadge status={item.status} />
           <ReviewStatusBadge status={item.reviewStatus} />
+          {item.status === 'completed' && getOverdueStatus(item) !== 'normal' && (
+            <OverdueBadge status={getOverdueStatus(item)} days={getDaysSinceCompleted(item)} />
+          )}
         </div>
       ),
     },
@@ -590,6 +601,7 @@ export function OrderDetail() {
 
   const getOrderById = useOrderStore((s) => s.getOrderById);
   const updateOrderStatus = useOrderStore((s) => s.updateOrderStatus);
+  const sendPickupReminder = useOrderStore((s) => s.sendPickupReminder);
   const getCustomerById = useCustomerStore((s) => s.getCustomerById);
   const getExamRecordById = useCustomerStore((s) => s.getExamRecordById);
   const getExamRecordsByCustomerId = useCustomerStore((s) => s.getExamRecordsByCustomerId);
@@ -665,7 +677,12 @@ export function OrderDetail() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={order.status} />
+          <div className="flex flex-col gap-1">
+            <StatusBadge status={order.status} />
+            {order.status === 'completed' && getOverdueStatus(order) !== 'normal' && (
+              <OverdueBadge status={getOverdueStatus(order)} days={getDaysSinceCompleted(order)} />
+            )}
+          </div>
           {nextStatus && (
             <button
               onClick={() => handleStatusUpdate(nextStatus.status)}
@@ -680,6 +697,23 @@ export function OrderDetail() {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >
               取镜复核
+            </button>
+          )}
+          {order.status === 'completed' && !order.pickupReminderSent && (
+            <button
+              onClick={() => {
+                if (confirm(`确定要向 ${customer?.name || '顾客'} 发送取镜提醒短信吗？`)) {
+                  const success = sendPickupReminder(order.id);
+                  if (success) {
+                    alert('短信提醒发送成功！');
+                  } else {
+                    alert('短信提醒发送失败，请稍后重试。');
+                  }
+                }
+              }}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
+            >
+              发送取镜提醒
             </button>
           )}
         </div>
@@ -860,7 +894,29 @@ export function OrderDetail() {
                 <span className="text-gray-500">预计取镜</span>
                 <span className="text-gray-900">{order.pickupDate}</span>
               </div>
-              <div className="flex justify-between">
+              {order.completedAt && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">加工完成</span>
+                  <span className="text-gray-900">{formatDate(order.completedAt)}</span>
+                </div>
+              )}
+              {order.status === 'completed' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">逾期状态</span>
+                  <OverdueBadge status={getOverdueStatus(order)} days={getDaysSinceCompleted(order)} />
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">提醒状态</span>
+                {order.pickupReminderSent ? (
+                  <span className="text-xs text-green-600">
+                    已发送 ({order.pickupReminderSentAt ? formatDate(order.pickupReminderSentAt) : ''})
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400">未发送</span>
+                )}
+              </div>
+              <div className="flex justify-between items-center">
                 <span className="text-gray-500">复核状态</span>
                 <ReviewStatusBadge status={order.reviewStatus} />
               </div>

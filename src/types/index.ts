@@ -69,6 +69,7 @@ export interface OldGlassesRx {
 
 export type OrderStatus = 'pending' | 'processing' | 'completed' | 'picked';
 export type ReviewStatus = 'pending' | 'reviewed';
+export type OverdueStatus = 'normal' | 'warning' | 'abnormal';
 
 export interface Order {
   id: string;
@@ -85,6 +86,9 @@ export interface Order {
   reviewStatus: ReviewStatus;
   createdAt: string;
   updatedAt: string;
+  completedAt: string | null;
+  pickupReminderSent: boolean;
+  pickupReminderSentAt: string | null;
 }
 
 export interface DashboardStats {

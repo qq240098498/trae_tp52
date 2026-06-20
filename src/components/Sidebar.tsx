@@ -6,6 +6,7 @@ import {
   Eye,
   ShoppingCart,
   Package,
+  Clock,
 } from 'lucide-react';
 
 const menuItems = [
@@ -14,6 +15,7 @@ const menuItems = [
   { path: '/frames', icon: Glasses, label: '镜架库存' },
   { path: '/lenses', icon: Eye, label: '镜片库存' },
   { path: '/orders', icon: ShoppingCart, label: '订单管理' },
+  { path: '/overdue', icon: Clock, label: '逾期取镜' },
 ];
 
 export function Sidebar() {

@@ -8,6 +8,7 @@ import type {
   LensSalesStats,
   LensRestockSuggestion,
   LensRestockItem,
+  OverdueStatus,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -312,6 +313,9 @@ export const mockOrders: Order[] = [
     reviewStatus: 'reviewed',
     createdAt: '2024-01-15T11:00:00Z',
     updatedAt: '2024-01-18T15:30:00Z',
+    completedAt: '2024-01-17T10:00:00Z',
+    pickupReminderSent: false,
+    pickupReminderSentAt: null,
   },
   {
     id: 'order_002',
@@ -328,6 +332,9 @@ export const mockOrders: Order[] = [
     reviewStatus: 'pending',
     createdAt: '2024-02-10T16:00:00Z',
     updatedAt: '2024-02-14T10:00:00Z',
+    completedAt: '2024-02-14T10:00:00Z',
+    pickupReminderSent: false,
+    pickupReminderSentAt: null,
   },
   {
     id: 'order_003',
@@ -344,6 +351,9 @@ export const mockOrders: Order[] = [
     reviewStatus: 'pending',
     createdAt: '2024-03-05T10:30:00Z',
     updatedAt: '2024-03-06T09:00:00Z',
+    completedAt: null,
+    pickupReminderSent: false,
+    pickupReminderSentAt: null,
   },
   {
     id: 'order_004',
@@ -360,6 +370,9 @@ export const mockOrders: Order[] = [
     reviewStatus: 'pending',
     createdAt: '2024-03-10T14:00:00Z',
     updatedAt: '2024-03-10T14:00:00Z',
+    completedAt: null,
+    pickupReminderSent: false,
+    pickupReminderSentAt: null,
   },
 ];
 
@@ -594,3 +607,44 @@ export const generateLensRestockSuggestion = (
 };
 
 export { STORAGE_KEYS };
+
+export const PICKUP_REMINDER_DAYS = 7;
+export const PICKUP_ABNORMAL_DAYS = 30;
+
+export const getDaysSinceCompleted = (order: Order, now: Date = new Date()): number => {
+  if (!order.completedAt || order.status !== 'completed') return 0;
+  const completedDate = new Date(order.completedAt);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const completed = new Date(completedDate.getFullYear(), completedDate.getMonth(), completedDate.getDate());
+  const diffTime = today.getTime() - completed.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+};
+
+export const getOverdueStatus = (order: Order, now: Date = new Date()): OverdueStatus => {
+  if (order.status !== 'completed' || !order.completedAt) return 'normal';
+  const days = getDaysSinceCompleted(order, now);
+  if (days >= PICKUP_ABNORMAL_DAYS) return 'abnormal';
+  if (days >= PICKUP_REMINDER_DAYS) return 'warning';
+  return 'normal';
+};
+
+export const getOverdueOrders = (orders: Order[], now: Date = new Date()): Order[] => {
+  return orders.filter((o) => {
+    const status = getOverdueStatus(o, now);
+    return status === 'warning' || status === 'abnormal';
+  });
+};
+
+export const getWarningOrders = (orders: Order[], now: Date = new Date()): Order[] => {
+  return orders.filter((o) => getOverdueStatus(o, now) === 'warning');
+};
+
+export const getAbnormalOrders = (orders: Order[], now: Date = new Date()): Order[] => {
+  return orders.filter((o) => getOverdueStatus(o, now) === 'abnormal');
+};
+
+export const sendPickupReminderSms = (customer: Customer, order: Order): boolean => {
+  console.log(`[短信提醒] 发送给 ${customer.name} (${customer.phone}): 您的眼镜已加工完成${getDaysSinceCompleted(order)}天，请到店取镜。订单号: ${order.id}`);
+  return true;
+};
