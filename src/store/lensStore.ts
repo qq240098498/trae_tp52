@@ -1,6 +1,13 @@
 import { create } from 'zustand';
-import type { Lens } from '../types';
-import { generateId, getStorageItem, setStorageItem, STORAGE_KEYS } from '../utils';
+import type { Lens, LensSalesStats, LensRestockSuggestion, Order } from '../types';
+import {
+  generateId,
+  getStorageItem,
+  setStorageItem,
+  STORAGE_KEYS,
+  calculateLensSalesStats,
+  generateLensRestockSuggestion,
+} from '../utils';
 
 interface LensState {
   lenses: Lens[];
@@ -13,6 +20,8 @@ interface LensState {
   updateStock: (id: string, change: number) => void;
   searchLenses: (keyword: string) => Lens[];
   getLowStockLenses: () => Lens[];
+  getLensSalesStats: () => LensSalesStats[];
+  getRestockSuggestion: (safetyBuffer?: number) => LensRestockSuggestion;
 }
 
 export const useLensStore = create<LensState>((set, get) => ({
@@ -79,5 +88,15 @@ export const useLensStore = create<LensState>((set, get) => ({
 
   getLowStockLenses: () => {
     return get().lenses.filter((l) => l.stock <= l.warningStock);
+  },
+
+  getLensSalesStats: () => {
+    const orders = getStorageItem<Order[]>(STORAGE_KEYS.ORDERS, []);
+    return calculateLensSalesStats(orders, get().lenses);
+  },
+
+  getRestockSuggestion: (safetyBuffer = 1.5) => {
+    const orders = getStorageItem<Order[]>(STORAGE_KEYS.ORDERS, []);
+    return generateLensRestockSuggestion(orders, get().lenses, safetyBuffer);
   },
 }));

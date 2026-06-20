@@ -93,3 +93,34 @@ export interface DashboardStats {
   lowStockItems: number;
   totalSales: number;
 }
+
+export interface LensSalesStats {
+  refractiveIndex: number;
+  coating: string;
+  brand: string;
+  type: string;
+  lensId: string;
+  lastMonthSales: number;
+}
+
+export interface LensRestockItem {
+  lens: Lens;
+  lastMonthSales: number;
+  stockGap: number;
+  suggestedPurchaseQty: number;
+  estimatedCost: number;
+  urgency: 'normal' | 'urgent' | 'critical';
+}
+
+export interface LensRestockSuggestion {
+  generatedAt: string;
+  lastMonthRange: { start: string; end: string };
+  items: LensRestockItem[];
+  totalEstimatedCost: number;
+  summary: {
+    totalItems: number;
+    criticalItems: number;
+    urgentItems: number;
+    normalItems: number;
+  };
+}

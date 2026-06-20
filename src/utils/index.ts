@@ -1,4 +1,14 @@
-import type { Customer, ExamRecord, Frame, Lens, Order, EyePrescription } from '../types';
+import type {
+  Customer,
+  ExamRecord,
+  Frame,
+  Lens,
+  Order,
+  EyePrescription,
+  LensSalesStats,
+  LensRestockSuggestion,
+  LensRestockItem,
+} from '../types';
 
 const STORAGE_KEYS = {
   CUSTOMERS: 'optic_customers',
@@ -456,6 +466,131 @@ export const getPreviousExamRecord = (
   const currentIndex = sortedRecords.findIndex((r) => r.id === currentRecordId);
   if (currentIndex < 0 || currentIndex >= sortedRecords.length - 1) return undefined;
   return sortedRecords[currentIndex + 1];
+};
+
+export const getLastMonthRange = (now: Date = new Date()): { start: string; end: string } => {
+  const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const start = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0, 0);
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+};
+
+export const calculateLensSalesStats = (
+  orders: Order[],
+  lenses: Lens[],
+  now: Date = new Date()
+): LensSalesStats[] => {
+  const { start, end } = getLastMonthRange(now);
+  const startMs = new Date(start).getTime();
+  const endMs = new Date(end).getTime();
+
+  const salesMap = new Map<string, LensSalesStats>();
+
+  lenses.forEach((lens) => {
+    const key = `${lens.refractiveIndex}_${lens.coating}_${lens.id}`;
+    salesMap.set(key, {
+      refractiveIndex: lens.refractiveIndex,
+      coating: lens.coating,
+      brand: lens.brand,
+      type: lens.type,
+      lensId: lens.id,
+      lastMonthSales: 0,
+    });
+  });
+
+  orders
+    .filter((order) => {
+      const orderDate = new Date(order.createdAt).getTime();
+      return orderDate >= startMs && orderDate <= endMs;
+    })
+    .forEach((order) => {
+      const lens = lenses.find((l) => l.id === order.lensId);
+      if (lens) {
+        const key = `${lens.refractiveIndex}_${lens.coating}_${lens.id}`;
+        const stats = salesMap.get(key);
+        if (stats) {
+          stats.lastMonthSales += 1;
+        }
+      }
+    });
+
+  return Array.from(salesMap.values());
+};
+
+const getUrgencyLevel = (stock: number, warningStock: number, lastMonthSales: number): LensRestockItem['urgency'] => {
+  if (stock <= 0) return 'critical';
+  if (lastMonthSales > 0) {
+    const daysOfStock = lastMonthSales / 30 > 0 ? stock / (lastMonthSales / 30) : 999;
+    if (daysOfStock <= 7) return 'critical';
+    if (daysOfStock <= 15) return 'urgent';
+  }
+  if (stock <= warningStock * 0.5) return 'critical';
+  if (stock <= warningStock) return 'urgent';
+  return 'normal';
+};
+
+export const generateLensRestockSuggestion = (
+  orders: Order[],
+  lenses: Lens[],
+  safetyBuffer: number = 1.5,
+  now: Date = new Date()
+): LensRestockSuggestion => {
+  const salesStats = calculateLensSalesStats(orders, lenses, now);
+  const lastMonthRange = getLastMonthRange(now);
+  const items: LensRestockItem[] = [];
+
+  salesStats.forEach((stats) => {
+    const lens = lenses.find((l) => l.id === stats.lensId);
+    if (!lens) return;
+
+    const needsRestock = lens.stock <= lens.warningStock || stats.lastMonthSales > lens.stock;
+
+    if (!needsRestock) return;
+
+    const projectedDemand = Math.ceil(stats.lastMonthSales * safetyBuffer);
+    const targetStock = Math.max(projectedDemand, lens.warningStock * 2);
+    const stockGap = Math.max(0, targetStock - lens.stock);
+    const suggestedPurchaseQty = stockGap > 0 ? stockGap : Math.ceil(lens.warningStock * 0.5);
+    const urgency = getUrgencyLevel(lens.stock, lens.warningStock, stats.lastMonthSales);
+    const estimatedCost = suggestedPurchaseQty * lens.costPrice;
+
+    items.push({
+      lens,
+      lastMonthSales: stats.lastMonthSales,
+      stockGap,
+      suggestedPurchaseQty,
+      estimatedCost,
+      urgency,
+    });
+  });
+
+  items.sort((a, b) => {
+    const urgencyOrder = { critical: 0, urgent: 1, normal: 2 };
+    if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
+      return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+    }
+    return b.lastMonthSales - a.lastMonthSales;
+  });
+
+  const totalEstimatedCost = items.reduce((sum, item) => sum + item.estimatedCost, 0);
+  const criticalItems = items.filter((i) => i.urgency === 'critical').length;
+  const urgentItems = items.filter((i) => i.urgency === 'urgent').length;
+  const normalItems = items.filter((i) => i.urgency === 'normal').length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    lastMonthRange,
+    items,
+    totalEstimatedCost,
+    summary: {
+      totalItems: items.length,
+      criticalItems,
+      urgentItems,
+      normalItems,
+    },
+  };
 };
 
 export { STORAGE_KEYS };
