@@ -1,4 +1,4 @@
-import type { Customer, ExamRecord, Frame, Lens, Order } from '../types';
+import type { Customer, ExamRecord, Frame, Lens, Order, EyePrescription } from '../types';
 
 const STORAGE_KEYS = {
   CUSTOMERS: 'optic_customers',
@@ -104,6 +104,17 @@ export const mockExamRecords: ExamRecord[] = [
     notes: '双眼近视，初次配镜，无不适感',
     optometrist: '李医生',
     createdAt: '2024-01-15T10:30:00Z',
+  },
+  {
+    id: 'exam_004',
+    customerId: 'cust_001',
+    examDate: '2024-06-20',
+    rightEye: { sphere: -3.25, cylinder: -0.75, axis: 175, add: 0, visualAcuity: '1.0' },
+    leftEye: { sphere: -2.75, cylinder: -0.5, axis: 165, add: 0, visualAcuity: '1.0' },
+    pd: 64,
+    notes: '近视加深，建议更换镜片',
+    optometrist: '王医生',
+    createdAt: '2024-06-20T14:00:00Z',
   },
   {
     id: 'exam_002',
@@ -381,6 +392,70 @@ export const getDashboardStats = (): {
     lowStockItems: lowStockFrames + lowStockLenses,
     totalSales,
   };
+};
+
+export interface PrescriptionDiff {
+  rightSphereDiff: number;
+  rightCylinderDiff: number;
+  leftSphereDiff: number;
+  leftCylinderDiff: number;
+  hasSignificantChange: boolean;
+  significantItems: string[];
+}
+
+export const PRESCRIPTION_CHANGE_THRESHOLD = 0.25;
+
+export const calculatePrescriptionDiff = (
+  oldRx: { rightEye: EyePrescription; leftEye: EyePrescription },
+  newRx: { rightEye: EyePrescription; leftEye: EyePrescription }
+): PrescriptionDiff => {
+  const rightSphereDiff = newRx.rightEye.sphere - oldRx.rightEye.sphere;
+  const rightCylinderDiff = newRx.rightEye.cylinder - oldRx.rightEye.cylinder;
+  const leftSphereDiff = newRx.leftEye.sphere - oldRx.leftEye.sphere;
+  const leftCylinderDiff = newRx.leftEye.cylinder - oldRx.leftEye.cylinder;
+
+  const significantItems: string[] = [];
+
+  if (Math.abs(rightSphereDiff) >= PRESCRIPTION_CHANGE_THRESHOLD) {
+    significantItems.push('右眼球镜');
+  }
+  if (Math.abs(rightCylinderDiff) >= PRESCRIPTION_CHANGE_THRESHOLD) {
+    significantItems.push('右眼柱镜');
+  }
+  if (Math.abs(leftSphereDiff) >= PRESCRIPTION_CHANGE_THRESHOLD) {
+    significantItems.push('左眼球镜');
+  }
+  if (Math.abs(leftCylinderDiff) >= PRESCRIPTION_CHANGE_THRESHOLD) {
+    significantItems.push('左眼柱镜');
+  }
+
+  return {
+    rightSphereDiff,
+    rightCylinderDiff,
+    leftSphereDiff,
+    leftCylinderDiff,
+    hasSignificantChange: significantItems.length > 0,
+    significantItems,
+  };
+};
+
+export const getChangeTrendText = (diff: number, itemName: string): string => {
+  if (diff === 0) return `${itemName}无变化`;
+  const direction = diff > 0 ? '增加' : '减少';
+  const absValue = Math.abs(diff).toFixed(2);
+  return `${itemName}${direction} ${absValue}D`;
+};
+
+export const getPreviousExamRecord = (
+  allRecords: ExamRecord[],
+  currentRecordId: string
+): ExamRecord | undefined => {
+  const sortedRecords = [...allRecords].sort(
+    (a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime()
+  );
+  const currentIndex = sortedRecords.findIndex((r) => r.id === currentRecordId);
+  if (currentIndex < 0 || currentIndex >= sortedRecords.length - 1) return undefined;
+  return sortedRecords[currentIndex + 1];
 };
 
 export { STORAGE_KEYS };

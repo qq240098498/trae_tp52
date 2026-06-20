@@ -1,10 +1,10 @@
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Phone, Calendar, MapPin, Edit2, Eye, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Plus, Phone, Calendar, MapPin, Edit2, Eye, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { PrescriptionCard } from '../../components/PrescriptionCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useCustomerStore } from '../../store/customerStore';
 import { useOrderStore } from '../../store/orderStore';
-import { formatDate, formatCurrency } from '../../utils';
+import { formatDate, formatCurrency, calculatePrescriptionDiff } from '../../utils';
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -148,15 +148,40 @@ export default function CustomerDetail() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-3">
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 flex items-center gap-2 flex-wrap">
                               {formatDate(record.examDate)} 验光
                               {index === 0 && (
-                                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
                                   最新
                                 </span>
                               )}
+                              {index < examRecords.length - 1 && (() => {
+                                const prevRecord = examRecords[index + 1];
+                                const diff = calculatePrescriptionDiff(prevRecord, record);
+                                if (diff.hasSignificantChange) {
+                                  return (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      度数变动
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </p>
                             <p className="text-sm text-gray-500">验光师: {record.optometrist}</p>
+                            {index < examRecords.length - 1 && (() => {
+                              const prevRecord = examRecords[index + 1];
+                              const diff = calculatePrescriptionDiff(prevRecord, record);
+                              if (diff.hasSignificantChange) {
+                                return (
+                                  <p className="text-xs text-amber-600 mt-1">
+                                    较上次: {diff.significantItems.join('、')} 有变化
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                           <Link
                             to={`/customers/${id}/exam/${record.id}`}
