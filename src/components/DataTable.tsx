@@ -1,4 +1,5 @@
 import { ArrowUpDown, type LucideIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface DataTableColumn<T> {
   key: string;
@@ -78,9 +79,12 @@ interface StatCardProps {
   trend?: string;
   trendUp?: boolean;
   color?: 'blue' | 'green' | 'amber' | 'red';
+  onClick?: () => void;
+  linkTo?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, trendUp, color = 'blue' }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, trend, trendUp, color = 'blue', onClick, linkTo }: StatCardProps) {
+  const navigate = useNavigate();
   const colorClasses = {
     blue: 'from-blue-500 to-blue-600',
     green: 'from-green-500 to-green-600',
@@ -88,8 +92,23 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, color = 'bl
     red: 'from-red-500 to-red-600',
   };
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (linkTo) {
+      navigate(linkTo);
+    }
+  };
+
+  const isClickable = !!onClick || !!linkTo;
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+    <div
+      onClick={isClickable ? handleClick : undefined}
+      className={`bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all ${
+        isClickable ? 'cursor-pointer hover:border-blue-300 active:scale-[0.98]' : ''
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500 font-medium">{title}</p>
@@ -105,7 +124,9 @@ export function StatCard({ title, value, icon: Icon, trend, trendUp, color = 'bl
           )}
         </div>
         <div
-          className={`w-14 h-14 rounded-xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-lg`}
+          className={`w-14 h-14 rounded-xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center shadow-lg ${
+            isClickable ? 'group-hover:scale-110' : ''
+          }`}
         >
           <Icon className="w-7 h-7 text-white" />
         </div>

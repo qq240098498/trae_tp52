@@ -22,13 +22,25 @@ import type { Order, ExamRecord, Frame, Lens, Customer } from '../../types';
 
 export function OrderList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>(
+    (searchParams.get('status') as Order['status'] | 'all') || 'all'
+  );
 
   const orders = useOrderStore((s) => s.searchOrders(searchKeyword));
   const getCustomerById = useCustomerStore((s) => s.getCustomerById);
   const getFrameById = useFrameStore((s) => s.getFrameById);
   const getLensById = useLensStore((s) => s.getLensById);
+
+  const handleStatusChange = (value: Order['status'] | 'all') => {
+    setStatusFilter(value);
+    if (value === 'all') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ status: value }, { replace: true });
+    }
+  };
 
   const filteredOrders = statusFilter === 'all'
     ? orders
@@ -148,7 +160,7 @@ export function OrderList() {
           <div className="relative">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as Order['status'] | 'all')}
+              onChange={(e) => handleStatusChange(e.target.value as Order['status'] | 'all')}
               className="pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
             >
               {statusOptions.map((opt) => (

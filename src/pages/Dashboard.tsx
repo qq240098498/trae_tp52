@@ -83,18 +83,21 @@ export default function Dashboard() {
           color="blue"
           trend="较昨日 +2"
           trendUp
+          linkTo="/customers"
         />
         <StatCard
           title="待处理订单"
           value={stats.pendingOrders}
           icon={ShoppingCart}
           color="amber"
+          linkTo="/orders?status=pending"
         />
         <StatCard
           title="库存预警"
           value={stats.lowStockItems}
           icon={AlertTriangle}
           color="red"
+          linkTo="/frames"
         />
         <StatCard
           title="总销售额"
@@ -103,6 +106,7 @@ export default function Dashboard() {
           color="green"
           trend="本月 +12%"
           trendUp
+          linkTo="/orders"
         />
       </div>
 
